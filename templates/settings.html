@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Mi IA Local - Configuración{% endblock %}
+
+{% block page_title %}Configuración{% endblock %}
+
+{% block content %}
+<section class="tool-panel active" id="tool-settings" aria-labelledby="settings-heading">
+    <header class="tool-header">
+        <h2 id="settings-heading">Configuración</h2>
+        <p class="tool-description">Ajusta el modelo, temperatura, historial y verifica la conexión con Ollama.</p>
+    </header>
+    
+    <div class="settings-container">
+        <!-- Modelo -->
+        <div class="settings-section">
+            <h3 class="section-title">Modelo de IA</h3>
+            <div class="form-group">
+                <label for="settingModel">Nombre del modelo en Ollama</label>
+                <input type="text" id="settingModel" class="settings-input" value="{{ current_model }}" placeholder="Ej: llama3.2:latest, mistral, codellama" aria-label="Nombre del modelo">
+                <p class="help-text">Debe coincidir exactamente con el nombre del modelo instalado en Ollama. Usa <code>ollama list</code> para ver los disponibles.</p>
+            </div>
+        </div>
+        
+        <!-- Temperatura -->
+        <div class="settings-section">
+            <h3 class="section-title">Temperatura</h3>
+            <div class="form-group">
+                <div class="slider-container">
+                    <label for="settingTemperature">Creatividad: <span id="tempValue">{{ current_temperature }}</span></label>
+                    <input type="range" id="settingTemperature" class="settings-slider" min="0" max="1" step="0.1" value="{{ current_temperature }}" aria-label="Temperatura del modelo">
+                </div>
+                <p class="help-text">
+                    <strong>0.0</strong> = Respuestas deterministas y consistentes<br>
+                    <strong>0.7</strong> = Equilibrado (recomendado)<br>
+                    <strong>1.0</strong> = Más creativo y variado
+                </p>
+            </div>
+        </div>
+        
+        <!-- Historial -->
+        <div class="settings-section">
+            <h3 class="section-title">Historial</h3>
+            <div class="form-group toggle-group">
+                <div class="toggle-label">
+                    <span class="toggle-text">Guardar historial de conversaciones</span>
+                    <span class="toggle-desc">Guarda chats, traducciones, resúmenes y correcciones en la base de datos local</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="settingHistory" {% if history_enabled == 'true' %}checked{% endif %} aria-label="Activar historial">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="form-actions" style="margin-top: 1rem;">
+                <button class="btn btn-danger" id="clearAllHistoryBtn" onclick="clearAllHistory()">
+                    <span aria-hidden="true">🗑️</span> Eliminar todo el historial
+                </button>
+            </div>
+        </div>
+        
+        <!-- Conexión Ollama -->
+        <div class="settings-section">
+            <h3 class="section-title">Conexión con Ollama</h3>
+            <div class="connection-panel">
+                <div class="connection-status-large" id="settingsConnectionStatus">
+                    <div class="status-indicator-large" id="settingsStatusIndicator"></div>
+                    <div class="status-info">
+                        <span class="status-title" id="settingsStatusTitle">Comprobando...</span>
+                        <span class="status-detail" id="settingsStatusDetail">Verificando conexión con Ollama...</span>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="checkConnectionBtn" onclick="checkConnectionManual()">
+                        <span aria-hidden="true">🔄</span> Comprobar conexión
+                    </button>
+                </div>
+                <div class="available-models" id="availableModels" style="display: none;">
+                    <h4>Modelos disponibles:</h4>
+                    <ul id="modelsList" class="models-list"></ul>
+                    <p class="help-text">Si tu modelo no aparece, instálalo con: <code>ollama pull <modelo></code></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Guardar configuración -->
+        <div class="settings-section">
+            <div class="form-actions">
+                <button class="btn btn-primary btn-large" id="saveSettingsBtn" onclick="saveSettings()">
+                    <span aria-hidden="true">💾</span> Guardar configuración
+                </button>
+            </div>
+        </div>
+        
+        <!-- Información del sistema -->
+        <div class="settings-section">
+            <h3 class="section-title">Información</h3>
+            <div class="info-grid">
+                <div class="info-card">
+                    <span class="info-label">Versión</span>
+                    <span class="info-value">1.0.0</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">Python</span>
+                    <span class="info-value" id="pythonVersion">-</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">Flask</span>
+                    <span class="info-value" id="flaskVersion">-</span>
+                </div>
+                <div class="info-card">
+                    <span class="info-label">Base de datos</span>
+                    <span class="info-value">SQLite (local)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cargar versiones
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                // Las versiones se pueden obtener del servidor si se expone
+            });
+        
+        // Actualizar valor del slider en tiempo real
+        const tempSlider = document.getElementById('settingTemperature');
+        const tempValue = document.getElementById('tempValue');
+        if (tempSlider && tempValue) {
+            tempSlider.addEventListener('input', (e) => {
+                tempValue.textContent = parseFloat(e.target.value).toFixed(1);
+            });
+        }
+        
+        // Comprobar conexión al cargar
+        checkConnectionManual();
+    });
+</script>
+{% endblock %}

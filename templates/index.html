@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Mi IA Local - Chat{% endblock %}
+
+{% block page_title %}Chat{% endblock %}
+
+{% block content %}
+<!-- Chat Tool -->
+<section class="tool-panel active" id="tool-chat" aria-labelledby="chat-heading">
+    <header class="tool-header">
+        <h2 id="chat-heading">Chat con IA</h2>
+        <p class="tool-description">Conversa con tu asistente local. El contexto se mantiene durante la sesión.</p>
+    </header>
+    
+    <div class="chat-container">
+        <!-- Messages Area -->
+        <div class="messages-area" id="messagesArea" role="log" aria-live="polite" aria-label="Conversación">
+            {% if history %}
+                {% for msg in history %}
+                    <div class="message user-message" data-timestamp="{{ msg.created_at }}">
+                        <div class="message-avatar" aria-hidden="true">👤</div>
+                        <div class="message-content">
+                            <div class="message-text">{{ msg.user_input }}</div>
+                            <time class="message-time">{{ msg.created_at }}</time>
+                        </div>
+                    </div>
+                    <div class="message assistant-message" data-timestamp="{{ msg.created_at }}">
+                        <div class="message-avatar" aria-hidden="true">🤖</div>
+                        <div class="message-content">
+                            <div class="message-text markdown-content">{{ msg.ai_response | safe }}</div>
+                            <time class="message-time">{{ msg.created_at }}</time>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="welcome-message">
+                    <div class="welcome-icon" aria-hidden="true">🤖</div>
+                    <h3>¡Bienvenido a Mi IA Local!</h3>
+                    <p>Tu asistente de IA privado y completamente local.</p>
+                    <p class="welcome-hint">Escribe un mensaje abajo para comenzar.</p>
+                </div>
+            {% endif %}
+            <div id="messagesEnd"></div>
+        </div>
+        
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" aria-hidden="true">
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+            <span class="typing-text">La IA está escribiendo...</span>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="chat-input-area">
+            <div class="input-wrapper">
+                <textarea 
+                    id="chatInput" 
+                    class="chat-input" 
+                    placeholder="Escribe tu mensaje aquí... (Shift+Enter para nueva línea)"
+                    rows="1"
+                    aria-label="Tu mensaje"
+                    spellcheck="true"></textarea>
+                <button class="send-btn" id="sendBtn" aria-label="Enviar mensaje" onclick="sendChatMessage()">
+                    <span aria-hidden="true">➤</span>
+                </button>
+            </div>
+            <div class="input-hints">
+                <kbd>Enter</kbd> Enviar &nbsp; | &nbsp; <kbd>Shift</kbd>+<kbd>Enter</kbd> Nueva línea
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Translate Tool -->
+<section class="tool-panel" id="tool-translate" aria-labelledby="translate-heading" hidden>
+    <header class="tool-header">
+        <h2 id="translate-heading">Traductor</h2>
+        <p class="tool-description">Traduce textos entre varios idiomas usando tu modelo local.</p>
+    </header>
+    
+    <div class="tool-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="translateSource">Idioma de origen</label>
+                <select id="translateSource" aria-label="Idioma de origen">
+                    {% for code, name in supported_languages.items() %}
+                    <option value="{{ code }}">{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group swap-container">
+                <label>&nbsp;</label>
+                <button type="button" class="swap-btn" id="swapLanguages" aria-label="Intercambiar idiomas" onclick="swapLanguages()">
+                    <span aria-hidden="true">⇄</span>
+                </button>
+            </div>
+            <div class="form-group">
+                <label for="translateTarget">Idioma de destino</label>
+                <select id="translateTarget" aria-label="Idioma de destino">
+                    {% for code, name in supported_languages.items() %}
+                    <option value="{{ code }}" {% if code == 'en' %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="translateInput">Texto a traducir</label>
+            <textarea id="translateInput" class="tool-textarea" placeholder="Escribe o pega el texto que quieres traducir..." aria-label="Texto a traducir" rows="6"></textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button class="btn btn-primary" id="translateBtn" onclick="translateText()">
+                <span aria-hidden="true">🌐</span> Traducir
+            </button>
+            <button class="btn btn-secondary" id="clearTranslateBtn" onclick="clearTool('translate')">
+                <span aria-hidden="true">🗑️</span> Limpiar
+            </button>
+        </div>
+        
+        <div class="form-group result-group">
+            <label for="translateOutput">Traducción</label>
+            <div class="output-wrapper">
+                <textarea id="translateOutput" class="tool-textarea output-textarea" readonly placeholder="La traducción aparecerá aquí..." aria-label="Resultado de la traducción" rows="6"></textarea>
+                <button class="copy-btn" id="copyTranslateBtn" onclick="copyToClipboard('translateOutput')" aria-label="Copiar traducción">
+                    <span aria-hidden="true">📋</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Summarize Tool -->
+<section class="tool-panel" id="tool-summarize" aria-labelledby="summarize-heading" hidden>
+    <header class="tool-header">
+        <h2 id="summarize-heading">Resúmenes</h2>
+        <p class="tool-description">Genera resúmenes de textos largos manteniendo las ideas principales.</p>
+    </header>
+    
+    <div class="tool-form">
+        <div class="form-group">
+            <label for="summaryType">Tipo de resumen</label>
+            <div class="radio-group" role="radiogroup" aria-label="Tipo de resumen">
+                {% for code, name in summary_types.items() %}
+                <label class="radio-option">
+                    <input type="radio" name="summaryType" value="{{ code }}" {% if code == 'medium' %}checked{% endif %}>
+                    <span class="radio-custom"></span>
+                    <span class="radio-label">{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="summarizeInput">Texto a resumir</label>
+            <textarea id="summarizeInput" class="tool-textarea" placeholder="Pega aquí el texto largo que quieres resumir..." aria-label="Texto a resumir" rows="8"></textarea>
+            <p class="char-count" id="summarizeCharCount">0 caracteres</p>
+        </div>
+        
+        <div class="form-actions">
+            <button class="btn btn-primary" id="summarizeBtn" onclick="summarizeText()">
+                <span aria-hidden="true">📄</span> Resumir
+            </button>
+            <button class="btn btn-secondary" id="clearSummarizeBtn" onclick="clearTool('summarize')">
+                <span aria-hidden="true">🗑️</span> Limpiar
+            </button>
+        </div>
+        
+        <div class="form-group result-group">
+            <label for="summarizeOutput">Resumen</label>
+            <div class="output-wrapper">
+                <textarea id="summarizeOutput" class="tool-textarea output-textarea" readonly placeholder="El resumen aparecerá aquí..." aria-label="Resultado del resumen" rows="6"></textarea>
+                <button class="copy-btn" id="copySummarizeBtn" onclick="copyToClipboard('summarizeOutput')" aria-label="Copiar resumen">
+                    <span aria-hidden="true">📋</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Correct Tool -->
+<section class="tool-panel" id="tool-correct" aria-labelledby="correct-heading" hidden>
+    <header class="tool-header">
+        <h2 id="correct-heading">Corrector Ortográfico y Gramatical</h2>
+        <p class="tool-description">Corrige ortografía, gramática y puntuación. Elige el tono deseado.</p>
+    </header>
+    
+    <div class="tool-form">
+        <div class="form-group">
+            <label for="correctionTone">Tono del texto corregido</label>
+            <div class="radio-group" role="radiogroup" aria-label="Tono de corrección">
+                {% for code, name in correction_tones.items() %}
+                <label class="radio-option">
+                    <input type="radio" name="correctionTone" value="{{ code }}" {% if code == 'neutral' %}checked{% endif %}>
+                    <span class="radio-custom"></span>
+                    <span class="radio-label">{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="correctInput">Texto a corregir</label>
+            <textarea id="correctInput" class="tool-textarea" placeholder="Escribe o pega el texto que quieres corregir..." aria-label="Texto a corregir" rows="6"></textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button class="btn btn-primary" id="correctBtn" onclick="correctText()">
+                <span aria-hidden="true">✏️</span> Corregir
+            </button>
+            <button class="btn btn-secondary" id="clearCorrectBtn" onclick="clearTool('correct')">
+                <span aria-hidden="true">🗑️</span> Limpiar
+            </button>
+        </div>
+        
+        <div class="form-group result-group">
+            <label for="correctOutput">Texto corregido</label>
+            <div class="output-wrapper">
+                <textarea id="correctOutput" class="tool-textarea output-textarea" readonly placeholder="El texto corregido aparecerá aquí..." aria-label="Texto corregido" rows="6"></textarea>
+                <button class="copy-btn" id="copyCorrectBtn" onclick="copyToClipboard('correctOutput')" aria-label="Copiar texto corregido">
+                    <span aria-hidden="true">📋</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Code Help Tool -->
+<section class="tool-panel" id="tool-code-help" aria-labelledby="code-help-heading" hidden>
+    <header class="tool-header">
+        <h2 id="code-help-heading">Ayuda para Programar</h2>
+        <p class="tool-description">Pregunta sobre Python, HTML, CSS, JavaScript, SQL, Git y GitHub. Obtén explicaciones paso a paso.</p>
+    </header>
+    
+    <div class="tool-form">
+        <div class="form-group">
+            <label for="codeLanguage">Lenguaje / Tema</label>
+            <select id="codeLanguage" aria-label="Lenguaje de programación">
+                <option value="general">General</option>
+                <option value="python">Python</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="javascript">JavaScript</option>
+                <option value="sql">SQL</option>
+                <option value="git">Git / GitHub</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="codeQuestion">Tu pregunta</label>
+            <textarea id="codeQuestion" class="tool-textarea" placeholder="Ej: ¿Cómo hago un bucle for en Python? ¿Cómo centro un div en CSS? ¿Qué es un JOIN en SQL?" aria-label="Pregunta de programación" rows="4"></textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button class="btn btn-primary" id="codeHelpBtn" onclick="askCodeHelp()">
+                <span aria-hidden="true">💻</span> Preguntar
+            </button>
+            <button class="btn btn-secondary" id="clearCodeHelpBtn" onclick="clearTool('code-help')">
+                <span aria-hidden="true">🗑️</span> Limpiar
+            </button>
+        </div>
+        
+        <div class="form-group result-group">
+            <label for="codeAnswer">Respuesta</label>
+            <div class="output-wrapper code-output-wrapper">
+                <div id="codeAnswer" class="code-output markdown-content" aria-label="Respuesta de programación"></div>
+                <button class="copy-btn" id="copyCodeHelpBtn" onclick="copyCodeOutput()" aria-label="Copiar respuesta">
+                    <span aria-hidden="true">📋</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="code-warning">
+            <span class="warning-icon" aria-hidden="true">⚠️</span>
+            <span class="warning-text">Revisa y prueba siempre el código generado antes de usarlo en producción.</span>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Inicializar herramienta activa
+    document.addEventListener('DOMContentLoaded', () => {
+        initChat();
+        checkConnection();
+        updateCharCount('summarizeInput', 'summarizeCharCount');
+    });
+</script>
+{% endblock %}

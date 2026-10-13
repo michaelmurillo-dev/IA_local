@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Mi IA Local - Asistente de IA privado y local">
+    <title>{% block title %}Mi IA Local{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar" role="navigation" aria-label="Herramientas principales">
+            <div class="sidebar-header">
+                <h1 class="app-title">Mi IA Local</h1>
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Ocultar menú" aria-expanded="true">
+                    <span class="toggle-icon">◀</span>
+                </button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="tool-list" role="list">
+                    {% for tool in tools %}
+                    <li>
+                        <button 
+                            class="tool-btn {% if tool.id == active_tool %}active{% endif %}" 
+                            data-tool="{{ tool.id }}"
+                            aria-current="{% if tool.id == active_tool %}page{% else %}false{% endif %}"
+                            {% if tool.id == 'settings' %}onclick="window.location.href='{{ url_for('settings') }}'"{% else %}onclick="switchTool('{{ tool.id }}')"{% endif %}>
+                            <span class="tool-icon" aria-hidden="true">{{ tool.icon }}</span>
+                            <span class="tool-name">{{ tool.name }}</span>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="connection-status" id="connectionStatus" role="status" aria-live="polite">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span class="status-text" id="statusText">Comprobando...</span>
+                </div>
+                <div class="model-info" id="modelInfo">
+                    <span class="model-label">Modelo:</span>
+                    <span class="model-name" id="modelName">{{ current_model }}</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent" role="main">
+            <!-- Header -->
+            <header class="main-header">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Mostrar menú" aria-expanded="false">
+                    <span class="hamburger" aria-hidden="true">☰</span>
+                </button>
+                <h2 class="page-title" id="pageTitle">{% block page_title %}{{ active_tool|capitalize }}{% endblock %}</h2>
+                <div class="header-actions">
+                    <button class="icon-btn" id="clearChatBtn" aria-label="Limpiar chat" onclick="clearCurrentTool()" style="display: none;">
+                        <span aria-hidden="true">🗑️</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Content Area -->
+            <div class="content-area" id="contentArea">
+                {% block content %}{% endblock %}
+            </div>
+            
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="polite" aria-hidden="true">
+                <div class="spinner"></div>
+                <p class="loading-text" id="loadingText">Procesando...</p>
+            </div>
+            
+            <!-- Error Toast -->
+            <div class="toast-container" id="toastContainer" role="region" aria-live="polite" aria-label="Notificaciones"></div>
+        </main>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
